@@ -72,6 +72,15 @@ object Sheets {
         pressable(0.99f)
     }
 
+    class Item(val label: String, val icon: Int, val danger: Boolean = false, val action: () -> Unit)
+
+    /** A simple list of actions in a bottom sheet. */
+    fun menu(ctx: Context, title: String?, items: List<Item>) {
+        sheet(ctx, title) { col, d ->
+            for (i in items) col.addView(row(ctx, i.label, i.icon, danger = i.danger) { d.dismiss(); i.action() })
+        }
+    }
+
     // ---- sort -----------------------------------------------------------------
 
     fun sort(ctx: Context, current: Sort, onPick: (Sort) -> Unit) {
