@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#0B0B0D</color>
+    <color name="surface">#151518</color>
+    <color name="ink">#F4F4F6</color>
+    <color name="ink2">#98989F</color>
+    <color name="line">#26262B</color>
+    <color name="fill">#1D1D21</color>
+    <color name="accent">#7C93FF</color>
+    <color name="danger">#FF6369</color>
+    <color name="bar_tint">#B3151518</color>
+    <color name="bar_edge">#26FFFFFF</color>
+    <color name="bar_pill">#1FFFFFFF</color>
+</resources>
