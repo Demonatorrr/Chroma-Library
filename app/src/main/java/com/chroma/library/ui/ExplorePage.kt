@@ -24,6 +24,7 @@ import com.chroma.library.R
 import com.chroma.library.data.FAMILIES
 import com.chroma.library.data.Query
 import com.chroma.library.data.Repo
+import com.chroma.library.data.SETS
 import com.chroma.library.data.Sort
 import java.text.NumberFormat
 
@@ -42,6 +43,7 @@ class ExplorePage(private val ctx: Context) : Page {
     private val empty = ctx.label("No colors match your search.", 15f, R.color.ink2).apply { visibility = View.GONE }
     private val list = RecyclerView(ctx)
     private val familyChips = ArrayList<Pair<String?, TextView>>()
+    private val setChips = ArrayList<Pair<String?, TextView>>()
     private lateinit var search: EditText
     private lateinit var clear: ImageView
 
@@ -90,7 +92,7 @@ class ExplorePage(private val ctx: Context) : Page {
         box.addView(ImageView(ctx).apply { setImageResource(R.drawable.ic_search); setColorFilter(ctx.color(R.color.ink2)) },
             LinearLayout.LayoutParams(ctx.dp(20), ctx.dp(20)).apply { marginEnd = ctx.dp(10) })
         search = EditText(ctx).apply {
-            hint = "Search name or HEX"
+            hint = "Search official name or HEX"
             setHintTextColor(ctx.color(R.color.ink2))
             setTextColor(ctx.color(R.color.ink))
             textSize = 16f
@@ -121,20 +123,24 @@ class ExplorePage(private val ctx: Context) : Page {
         col.addView(box, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(ctx.dp(20), ctx.dp(16), ctx.dp(20), 0) })
 
-        // family chips + sort
-        val chipRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(ctx.dp(20), 0, ctx.dp(20), 0) }
-        for (f in listOf<String?>(null) + FAMILIES) {
-            val chip = ctx.label(f ?: "All", 14f, R.color.ink, medium = true).apply {
-                gravity = Gravity.CENTER
-                setPadding(ctx.dp(16), ctx.dp(9), ctx.dp(16), ctx.dp(9))
-                setOnClickListener { apply(query.copy(family = f)) }
-                pressable()
+        // palette chips (Apple, Web, Material, Tailwind), then colour-family chips
+        fun chipRow(values: List<String?>, allLabel: String, store: ArrayList<Pair<String?, TextView>>, pick: (String?) -> Unit, top: Int) {
+            val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(ctx.dp(20), 0, ctx.dp(20), 0) }
+            for (f in values) {
+                val chip = ctx.label(f ?: allLabel, 14f, R.color.ink, medium = true).apply {
+                    gravity = Gravity.CENTER
+                    setPadding(ctx.dp(16), ctx.dp(9), ctx.dp(16), ctx.dp(9))
+                    setOnClickListener { pick(f) }
+                    pressable()
+                }
+                store.add(f to chip)
+                row.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = ctx.dp(8) })
             }
-            familyChips.add(f to chip)
-            chipRow.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = ctx.dp(8) })
+            col.addView(HorizontalScrollView(ctx).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; addView(row) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(top) })
         }
-        col.addView(HorizontalScrollView(ctx).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; addView(chipRow) },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(14) })
+        chipRow(listOf<String?>(null) + SETS, "All palettes", setChips, { apply(query.copy(set = it)) }, 14)
+        chipRow(listOf<String?>(null) + FAMILIES, "All hues", familyChips, { apply(query.copy(family = it)) }, 8)
 
         val sortRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -181,11 +187,13 @@ class ExplorePage(private val ctx: Context) : Page {
     }
 
     private fun paintChips() {
-        for ((f, chip) in familyChips) {
-            val on = f == query.family
-            chip.setTextColor(ctx.color(if (on) R.color.bg else R.color.ink))
-            chip.background = roundRect(ctx.color(if (on) R.color.ink else R.color.fill), ctx.dpf(100f))
-        }
+        for ((f, chip) in familyChips) paint(chip, f == query.family)
+        for ((f, chip) in setChips) paint(chip, f == query.set)
+    }
+
+    private fun paint(chip: TextView, on: Boolean) {
+        chip.setTextColor(ctx.color(if (on) R.color.bg else R.color.ink))
+        chip.background = roundRect(ctx.color(if (on) R.color.ink else R.color.fill), ctx.dpf(100f))
     }
 
     private fun applyGridSettings() {

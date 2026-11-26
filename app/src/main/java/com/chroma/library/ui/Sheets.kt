@@ -102,7 +102,7 @@ object Sheets {
             head.addView(View(ctx).apply { background = ctx.swatchBackground(c.argb, ctx.dpf(14f)) },
                 LinearLayout.LayoutParams(ctx.dp(52), ctx.dp(52)).apply { marginEnd = ctx.dp(14) })
             val t = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-            t.addView(ctx.label(c.name, 18f, R.color.ink, bold = true))
+            t.addView(ctx.label(c.title, 18f, R.color.ink, bold = true))
             t.addView(ctx.label("#${c.hex}", 13f, R.color.ink2).apply { typeface = Typeface.create("monospace", Typeface.NORMAL) },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(3) })
             head.addView(t)

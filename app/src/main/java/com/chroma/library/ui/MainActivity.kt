@@ -13,7 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.chroma.library.R
 import com.chroma.library.data.Repo
 
-/** Hosts the four main tabs and the floating tab bar that sits above them. */
+/** Hosts the five main tabs and the floating tab bar that sits above them. */
 class MainActivity : AppCompatActivity() {
 
     private val repo = Repo.instance
@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
 
         pages = listOf(
             ExplorePage(this),
+            PickerPage(this),
             CollectionsPage(this),
             FavoritesPage(this),
             SettingsPage(this, onExport = { exportLauncher.launch("chroma-library-backup.json") },
@@ -51,7 +52,8 @@ class MainActivity : AppCompatActivity() {
         tabs.backdrop = container
         tabs.setItems(listOf(
             "Explore" to R.drawable.ic_explore,
-            "Collections" to R.drawable.ic_folder,
+            "Picker" to R.drawable.ic_picker,
+            "Folders" to R.drawable.ic_folder,
             "Favorites" to R.drawable.ic_heart,
             "Settings" to R.drawable.ic_settings
         ))

@@ -1,0 +1,25 @@
+{
+ "_note": "Apple system colours (UIColor / SwiftUI). Opaque values only. Light and dark values as published for iOS; see README.",
+ "light": {
+  "System Red":"FF3B30","System Orange":"FF9500","System Yellow":"FFCC00","System Green":"34C759",
+  "System Mint":"00C7BE","System Teal":"30B0C7","System Cyan":"32ADE6","System Blue":"007AFF",
+  "System Indigo":"5856D6","System Purple":"AF52DE","System Pink":"FF2D55","System Brown":"A2845E",
+  "System Gray":"8E8E93","System Gray 2":"AEAEB2","System Gray 3":"C7C7CC","System Gray 4":"D1D1D6",
+  "System Gray 5":"E5E5EA","System Gray 6":"F2F2F7",
+  "Label":"000000","System Background":"FFFFFF","Secondary System Background":"F2F2F7",
+  "Tertiary System Background":"FFFFFF","System Grouped Background":"F2F2F7",
+  "Secondary System Grouped Background":"FFFFFF","Tertiary System Grouped Background":"F2F2F7",
+  "Opaque Separator":"C6C6C8"
+ },
+ "dark": {
+  "System Red":"FF453A","System Orange":"FF9F0A","System Yellow":"FFD60A","System Green":"30D158",
+  "System Mint":"63E6E2","System Teal":"40C8E0","System Cyan":"64D2FF","System Blue":"0A84FF",
+  "System Indigo":"5E5CE6","System Purple":"BF5AF2","System Pink":"FF375F","System Brown":"AC8E68",
+  "System Gray":"8E8E93","System Gray 2":"636366","System Gray 3":"48484A","System Gray 4":"3A3A3C",
+  "System Gray 5":"2C2C2E","System Gray 6":"1C1C1E",
+  "Label":"FFFFFF","System Background":"000000","Secondary System Background":"1C1C1E",
+  "Tertiary System Background":"2C2C2E","System Grouped Background":"000000",
+  "Secondary System Grouped Background":"1C1C1E","Tertiary System Grouped Background":"2C2C2E",
+  "Opaque Separator":"38383A"
+ }
+}

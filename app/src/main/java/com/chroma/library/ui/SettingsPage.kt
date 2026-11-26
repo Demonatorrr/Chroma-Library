@@ -114,10 +114,10 @@ class SettingsPage(
 
         section("About")
         val n = NumberFormat.getIntegerInstance().format(repo.total)
-        body.addView(line("Chroma Library", "Version 1.0 · $n named colors, stored on this device. No account, no ads, no internet needed."))
+        body.addView(line("Chroma Library", "Version 1.1 · $n official colors, stored on this device. No account, no ads, no internet needed."))
         divider()
-        body.addView(line("Color names", "From meodai/color-names by David Aerne and contributors, shared under the MIT License. Names and HEX values are used exactly as published.") {
-            Sheets.confirm(ctx, "MIT License", "Copyright (c) 2017 David Aerne\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies, subject to including this copyright and permission notice in all copies or substantial portions of the software.\n\nThe software is provided “as is”, without warranty of any kind.", "OK") {}
+        body.addView(line("Official names only", "Every name comes from a published palette: Apple system colors, CSS named colors, Google Material Design and Tailwind CSS. A color you pick yourself is never given an invented name; the nearest official one is shown instead.") {
+            Sheets.confirm(ctx, "Sources", "Apple: iOS system colors (UIKit / SwiftUI), light and dark values.\n\nWeb: the CSS named colors (npm color-name, MIT, Dmitry Ivanov).\n\nMaterial: Material Design color palette (npm material-colors, ISC, Shuhei Kagawa).\n\nTailwind: Tailwind CSS v3 default palette (MIT, Tailwind Labs).\n\nApple, Google and Tailwind names and values belong to their owners. Pantone and other licensed palettes are not included.", "OK") {}
         })
     }
 

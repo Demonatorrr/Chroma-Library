@@ -9,7 +9,7 @@ import java.text.Normalizer
 
 /**
  * The read-only colour library. The database ships inside the app (assets/colors.db, built from
- * meodai/color-names) and is copied once to private storage, so everything works offline.
+ * official palettes (Apple, CSS, Material, Tailwind)) and is copied once to private storage, so everything works offline.
  */
 class ColorDb(private val ctx: Context) {
 
@@ -33,7 +33,7 @@ class ColorDb(private val ctx: Context) {
         name = c.getString(0), hex = c.getString(1),
         r = c.getInt(2), g = c.getInt(3), b = c.getInt(4),
         h = c.getFloat(5), s = c.getFloat(6), l = c.getFloat(7), v = c.getFloat(8),
-        family = c.getString(9)
+        family = c.getString(9), sets = c.getString(10), also = c.getString(11)
     )
 
     private fun esc(s: String) = s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -67,6 +67,7 @@ class ColorDb(private val ctx: Context) {
             prefix = "${esc(fold(text))}%"
         }
         q.family?.let { parts.add("family = ?"); args.add(it) }
+        q.set?.let { parts.add("sets LIKE ?"); args.add("%|$it|%") }
         return Where(if (parts.isEmpty()) "" else " WHERE " + parts.joinToString(" AND "), args, prefix)
     }
 
@@ -143,6 +144,12 @@ class ColorDb(private val ctx: Context) {
         }
     }
 
+    /** The official colour closest to the given RGB (weighted distance), or null if the library is empty. */
+    fun nearest(r: Int, g: Int, b: Int): ColorItem? {
+        val sql = "SELECT $COLS FROM colors ORDER BY ((r-$r)*(r-$r)*2 + (g-$g)*(g-$g)*4 + (b-$b)*(b-$b)*3) LIMIT 1"
+        return db.rawQuery(sql, null).use { if (it.moveToFirst()) read(it) else null }
+    }
+
     /**
      * Lighter and darker neighbours with nearly the same hue and saturation:
      * up to [each] darker ones, the colour itself, then up to [each] lighter ones.
@@ -158,7 +165,7 @@ class ColorDb(private val ctx: Context) {
     }
 
     companion object {
-        private const val FILE = "colors_v1.db"
-        private const val COLS = "name, hex, r, g, b, h, s, l, v, family"
+        private const val FILE = "colors_v2.db"
+        private const val COLS = "name, hex, r, g, b, h, s, l, v, family, sets, also"
     }
 }

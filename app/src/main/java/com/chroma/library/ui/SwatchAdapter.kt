@@ -70,7 +70,7 @@ class SwatchAdapter(
         val ctx = h.root.context
         h.frame.ratio = ratio
         h.chip.background = ctx.swatchBackground(c.argb, ctx.dpf(Ui.R_MEDIUM.toFloat()))
-        h.name.text = c.name
+        h.name.text = c.title
         h.hex.text = "#${c.hex}"
         h.hex.visibility = if (showHex) View.VISIBLE else View.GONE
     }

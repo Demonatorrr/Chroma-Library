@@ -27,10 +27,41 @@ class Repo(ctx: Context) {
 
     val total: Int by lazy { colors.total() }
     fun familyCounts() = colors.familyCounts()
-    fun color(hex: String) = colors.byHex(hex)
+    /** An official colour, or (for any valid HEX) an unnamed colour made from the HEX alone. */
+    fun color(hex: String): ColorItem? {
+        val h = hex.uppercase()
+        return colors.byHex(h) ?: custom(h)
+    }
     fun colorsOf(hexes: List<String>): List<ColorItem> {
         val map = colors.byHexes(hexes)
-        return hexes.mapNotNull { map[it] }
+        return hexes.mapNotNull { map[it] ?: custom(it.uppercase()) }
+    }
+    fun nearest(c: ColorItem) = colors.nearest(c.r, c.g, c.b)
+
+    /** A colour that is not in the library (picked by the user). It has no name: only an official name is ever shown. */
+    fun custom(hex: String): ColorItem? {
+        if (!Regex("[0-9A-F]{6}").matches(hex)) return null
+        val r = hex.substring(0, 2).toInt(16); val g = hex.substring(2, 4).toInt(16); val b = hex.substring(4, 6).toInt(16)
+        val hsv = FloatArray(3)
+        android.graphics.Color.RGBToHSV(r, g, b, hsv)
+        val mx = maxOf(r, g, b) / 255f; val mn = minOf(r, g, b) / 255f
+        val l = (mx + mn) / 2f
+        val s = if (mx == mn) 0f else (mx - mn) / (1f - Math.abs(2f * l - 1f))
+        return ColorItem("", hex, r, g, b, hsv[0], s, l, hsv[2], familyOf(hsv[0], s, l))
+    }
+
+    private fun familyOf(h: Float, s: Float, l: Float): String = when {
+        s < 0.12f || l < 0.07f || l > 0.95f -> "Neutral"
+        h in 10f..50f && l < 0.42f -> "Brown"
+        l >= 0.72f && (h >= 330f || h < 15f) -> "Pink"
+        h < 15f || h >= 345f -> "Red"
+        h < 40f -> "Orange"
+        h < 70f -> "Yellow"
+        h < 165f -> "Green"
+        h < 200f -> "Teal"
+        h < 255f -> "Blue"
+        h < 300f -> "Purple"
+        else -> "Pink"
     }
     fun random() = colors.random()
     fun similar(c: ColorItem, n: Int = 24) = colors.similar(c, n)
@@ -100,7 +131,7 @@ class Repo(ctx: Context) {
         root.optJSONArray("favorites")?.let { a ->
             for (i in 0 until a.length()) {
                 val hex = a.getString(i).uppercase()
-                if (colors.byHex(hex) != null && !user.isFavorite(hex)) { user.toggleFavorite(hex); n++ }
+                if (custom(hex) != null && !user.isFavorite(hex)) { user.toggleFavorite(hex); n++ }
             }
         }
         root.optJSONArray("collections")?.let { a ->
@@ -110,7 +141,7 @@ class Repo(ctx: Context) {
                 val hexes = o.optJSONArray("colors") ?: continue
                 for (k in 0 until hexes.length()) {
                     val hex = hexes.getString(k).uppercase()
-                    if (colors.byHex(hex) != null) { user.setInFolder(id, hex, true); n++ }
+                    if (custom(hex) != null) { user.setInFolder(id, hex, true); n++ }
                 }
             }
         }

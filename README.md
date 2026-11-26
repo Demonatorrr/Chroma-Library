@@ -1,26 +1,17 @@
 # Chroma Library
 
-An offline colour library for Android: 32,004 named colours, collections, favourites and a detail view for every colour. No account, no ads, no internet needed.
+An offline colour library for Android with **official names only**: Apple system colours, CSS named colours, Google Material Design and Tailwind CSS. Collections, favourites, a detail view for every colour and a colour picker. No account, no ads, no internet needed.
 
-## Features
-- **Explore** – every colour, search by name or HEX, filter by family, sort (name, hue, lightness, vividness), endless scrolling, random colour.
-- **Collections** – unlimited folders with a name and cover colour; save one colour into many folders; rename, reorder, delete; move colours between folders.
-- **Favorites** – heart any colour.
-- **Colour detail** – large preview, HEX / RGB / HSL / HSV with copy buttons, favourite, save to collections, nearby shades and similar colours.
-- **Settings** – system/light/dark theme, grid size (2–4 columns), show/hide HEX, export and import a backup, clear data, about.
+## What is inside
+- **Explore** – search by official name or HEX; filter by palette (Apple, Web, Material, Tailwind) and by hue; sort.
+- **Picker** – hue/saturation wheel, brightness bar and HEX field. Shows the exact official name when the colour is in a palette; otherwise "No official name" plus the nearest official colour. Names are never invented.
+- **Folders** – unlimited collections with a cover colour. **Favorites**, **Settings** (theme, grid, backup/restore).
+- **Apple palette** – iOS system colours in light and dark, system grays, backgrounds and grouped backgrounds, handy when designing UI.
 
-## Data
-- Source: [meodai/color-names](https://github.com/meodai/color-names) (MIT), package `color-name-list` 14.86.0, the full `colornames.json` list (32,004 colours).
-- `tools/build_db.py` turns that file into `app/src/main/assets/colors.db` (SQLite). Names and HEX values are copied unchanged; RGB, HSL, HSV and the colour family are computed from the HEX value. Indexes make search and sorting fast.
-- User data (favourites, collections) lives in a separate local database, keyed by HEX.
+## Sources (`tools/sources/`)
+- Apple: iOS system colours (UIKit/SwiftUI), opaque values only (translucent labels, fills and separators are not included).
+- Web: CSS named colours, npm `color-name` 2.1.1 (MIT).
+- Material: npm `material-colors` 1.2.6 (ISC).
+- Tailwind: Tailwind CSS 3.4.17 default palette (MIT).
 
-## Code layout (`app/src/main/java/com/chroma/library`)
-- `data/` – models, read-only colour database, user database, `Repo` (the only entry point for the UI).
-- `domain/` – colour maths and formatting.
-- `ui/` – screens, adapters, sheets, the floating tab bar.
-
-## Build
-GitHub Actions builds `app-debug.apk` on every push (artifact `ChromaLibrary-apk`). The debug keystore is committed so new builds install over old ones.
-
-## Attribution
-Colour names © David Aerne and contributors, MIT License (see `tools/COLOR_NAMES_LICENSE.txt`).
+`python3 tools/build_db.py` rebuilds `app/src/main/assets/colors.db`. A HEX that appears in several palettes is stored once; its other names are kept as "also". Pantone and other licensed palettes are not included.

@@ -2,7 +2,7 @@ package com.chroma.library.ui
 
 import android.view.View
 
-/** One of the four main tabs. */
+/** One of the five main tabs. */
 interface Page {
     val view: View
     /** Space the floating tab bar needs at the bottom of any scrolling list. */

@@ -42,6 +42,7 @@ class DetailActivity : AppCompatActivity() {
     private lateinit var shuffle: ImageView
     private lateinit var nameView: TextView
     private lateinit var familyView: TextView
+    private lateinit var alsoView: TextView
     private lateinit var values: LinearLayout
     private lateinit var saveButton: TextView
     private lateinit var shadesRow: LinearLayout
@@ -76,6 +77,8 @@ class DetailActivity : AppCompatActivity() {
         val head = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(6)) }
         head.addView(nameView)
         head.addView(familyView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+        alsoView = label("", 14f, R.color.ink2).apply { visibility = View.GONE }
+        head.addView(alsoView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         content.addView(head)
 
         // values
@@ -158,8 +161,15 @@ class DetailActivity : AppCompatActivity() {
         val on = ColorMath.onColor(c.argb)
         for (v in listOf(back, heart, shuffle)) v.setColorFilter(on)
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !ColorMath.prefersWhite(c.argb)
-        nameView.text = c.name
-        familyView.text = "${c.family} family"
+        nameView.text = c.title
+        familyView.text = if (c.official) (c.setList.joinToString(" · ") + " · ${c.family}") else "Not an official color · ${c.family}"
+        alsoView.setOnClickListener(null)
+        alsoView.isClickable = false
+        when {
+            c.also.isNotEmpty() -> { alsoView.text = "Also: ${c.also}"; alsoView.visibility = View.VISIBLE }
+            !c.official -> { alsoView.text = "Looking for the nearest official name…"; alsoView.visibility = View.VISIBLE }
+            else -> alsoView.visibility = View.GONE
+        }
         paintHeart(false)
         fillValues(c)
         updateSaveLabel()
@@ -168,7 +178,16 @@ class DetailActivity : AppCompatActivity() {
         Thread {
             val shades = repo.shades(c, 6)
             val similar = repo.similar(c, 24)
-            runOnUiThread { if (my == token) { fillShades(shades, c); fillSimilar(similar) } }
+            val near = if (c.official) null else repo.nearest(c)
+            runOnUiThread {
+                if (my == token) {
+                    fillShades(shades, c); fillSimilar(similar)
+                    if (near != null) {
+                        alsoView.text = "Nearest official: ${near.name} (#${near.hex})"
+                        alsoView.setOnClickListener { go(near.hex, push = true) }
+                    }
+                }
+            }
         }.start()
     }
 
@@ -238,7 +257,7 @@ class DetailActivity : AppCompatActivity() {
             val v = swatch(c, dp(54), dp(72), c.hex == now.hex).apply {
                 setOnClickListener { if (c.hex != now.hex) go(c.hex, push = true) }
                 pressable(0.94f)
-                contentDescription = c.name
+                contentDescription = c.title
             }
             shadesRow.addView(v, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) })
         }
@@ -255,7 +274,7 @@ class DetailActivity : AppCompatActivity() {
             }
             cell.addView(View(this).apply { background = swatchBackground(c.argb, dpf(Ui.R_MEDIUM.toFloat())) },
                 LinearLayout.LayoutParams(dp(112), dp(112)))
-            cell.addView(label(c.name, 13f, R.color.ink, medium = true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
+            cell.addView(label(c.title, 13f, R.color.ink, medium = true).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
                 LinearLayout.LayoutParams(dp(112), ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
             cell.addView(label("#${c.hex}", 11.5f, R.color.ink2).apply { typeface = Typeface.create("monospace", Typeface.NORMAL) },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
