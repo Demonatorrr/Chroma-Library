@@ -1,0 +1,9 @@
+{
+  "source": "My Licensed Palette",
+  "license": "Describe your licence here, e.g. 'Licensed to <your company>'",
+  "reference": "https://example.com/where-this-data-came-from",
+  "category": "Industrial standard",
+  "colors": [
+    { "code": "EXAMPLE 001", "name": "Replace with the official name", "hex": "#808080" }
+  ]
+}

@@ -8,7 +8,7 @@ import java.util.Locale
 import java.text.Normalizer
 
 /**
- * The read-only colour library. The database ships inside the app (assets/colors.db, built from
+ * The colour library. The database ships inside the app (assets/colors.db, built from
  * official palettes (Apple, CSS, Material, Tailwind)) and is copied once to private storage, so everything works offline.
  */
 class ColorDb(private val ctx: Context) {
@@ -26,14 +26,15 @@ class ColorDb(private val ctx: Context) {
             ctx.assets.open("colors.db").use { input -> tmp.outputStream().use { input.copyTo(it) } }
             tmp.renameTo(target)
         }
-        return SQLiteDatabase.openDatabase(target.path, null, SQLiteDatabase.OPEN_READONLY)
+        return SQLiteDatabase.openDatabase(target.path, null, SQLiteDatabase.OPEN_READWRITE)
     }
 
     private fun read(c: Cursor) = ColorItem(
         name = c.getString(0), hex = c.getString(1),
         r = c.getInt(2), g = c.getInt(3), b = c.getInt(4),
         h = c.getFloat(5), s = c.getFloat(6), l = c.getFloat(7), v = c.getFloat(8),
-        family = c.getString(9), sets = c.getString(10), also = c.getString(11)
+        family = c.getString(9), sets = c.getString(10), also = c.getString(11),
+        code = c.getString(12), category = c.getString(13)
     )
 
     private fun esc(s: String) = s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -50,7 +51,11 @@ class ColorDb(private val ctx: Context) {
         val args = ArrayList<String>()
         var prefix: String? = null
         val text = q.text.trim()
-        if (text.isNotEmpty()) {
+        val rgb = Regex("^(?:rgb\\(\\s*)?(\\d{1,3})[\\s,]+(\\d{1,3})[\\s,]+(\\d{1,3})\\s*\\)?$").find(text)
+        if (rgb != null && rgb.groupValues.drop(1).all { it.toInt() <= 255 }) {
+            parts.add("(r = ? AND g = ? AND b = ?)")
+            rgb.groupValues.drop(1).forEach { args.add(it.toInt().toString()) }
+        } else if (text.isNotEmpty()) {
             val hexLike = text.removePrefix("#")
             val isHex = hexLike.length in 2..6 && hexLike.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
             val words = fold(text.removePrefix("#")).split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -144,6 +149,79 @@ class ColorDb(private val ctx: Context) {
         }
     }
 
+    // ---- sources and per-source entries ---------------------------------------
+
+    private fun readEntry(c: Cursor) = Entry(
+        source = c.getString(0), org = c.getString(1), code = c.getString(2), name = c.getString(3), nameType = c.getString(4),
+        category = c.getString(5), ref = c.getString(6), license = c.getString(7), verification = c.getString(8), imported = c.getInt(9) == 1
+    )
+    private val ENTRY_COLS = "source, org, code, name, name_type, category, ref, license, verification, imported"
+
+    /** Every source that names this colour, in display order. */
+    fun entries(hex: String): List<Entry> =
+        db.rawQuery("SELECT $ENTRY_COLS FROM entries WHERE hex = ? ORDER BY prio, id", arrayOf(hex.uppercase(Locale.ROOT))).use { c ->
+            val out = ArrayList<Entry>(c.count)
+            while (c.moveToNext()) out.add(readEntry(c))
+            out
+        }
+
+    fun sources(): List<SourceRow> =
+        db.rawQuery("SELECT source, COUNT(*), MAX(imported) FROM entries GROUP BY source ORDER BY MAX(imported), MIN(prio)", null).use { c ->
+            val out = ArrayList<SourceRow>()
+            while (c.moveToNext()) out.add(SourceRow(c.getString(0), c.getInt(1), c.getInt(2) == 1))
+            out
+        }
+
+    /** Replaces everything the user imported with [rows] (their licensed palette files). Built-in data is untouched. */
+    fun reloadImports(rows: List<ImportRow>) {
+        db.beginTransaction()
+        try {
+            val touched = HashSet<String>()
+            db.rawQuery("SELECT DISTINCT hex FROM entries WHERE imported = 1", null).use { while (it.moveToNext()) touched.add(it.getString(0)) }
+            db.execSQL("DELETE FROM entries WHERE imported = 1")
+            for (r in rows) {
+                db.execSQL(
+                    "INSERT INTO entries(hex, source, org, code, name, name_type, category, ref, license, verification, prio, imported) " +
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,1)",
+                    arrayOf(r.hex, r.source, r.source, r.code, r.name, "Official", r.category, r.ref, r.license, "imported", 5)
+                )
+                touched.add(r.hex)
+            }
+            for (h in touched) rebuild(h)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /** Recomputes one browsable colour row from its entries. */
+    private fun rebuild(hex: String) {
+        val es = entries(hex)
+        if (es.isEmpty()) { db.delete("colors", "hex = ?", arrayOf(hex)); return }
+        val first = es[0]
+        val sets = es.map { it.source }.distinct()
+        val also = es.drop(1).joinToString(" · ") { "${it.name} (${it.source})" }
+        val search = fold((es.map { it.name } + es.map { it.code }.filter { it.isNotEmpty() }).joinToString(" "))
+        val main = if (es.any { it.imported || it.source == "CSS" || it.source == "X11" }) 1 else 0
+        val setsText = "|" + sets.joinToString("|") + "|"
+        val exists = db.rawQuery("SELECT 1 FROM colors WHERE hex = ?", arrayOf(hex)).use { it.moveToFirst() }
+        if (exists) {
+            db.execSQL(
+                "UPDATE colors SET name=?, name_search=?, sets=?, also=?, code=?, category=?, main=? WHERE hex=?",
+                arrayOf(first.name, search, setsText, also, first.code, first.category, main, hex)
+            )
+        } else {
+            val b = com.chroma.library.domain.ColorMath.fromHex(hex) ?: return
+            val key = if (b.family == "Neutral") 1000.0 + b.l else b.h + b.l / 1000.0
+            val id = db.rawQuery("SELECT COALESCE(MAX(id), 0) + 1 FROM colors", null).use { it.moveToFirst(); it.getInt(0) }
+            db.execSQL(
+                "INSERT INTO colors(id, name, name_search, hex, r, g, b, h, s, l, v, hue_key, family, sets, also, code, category, main) " +
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                arrayOf(id, first.name, search, hex, b.r, b.g, b.b, b.h, b.s, b.l, b.v, key, b.family, setsText, also, first.code, first.category, main)
+            )
+        }
+    }
+
     /** The official colour closest to the given RGB (weighted distance), or null if the library is empty. */
     fun nearest(r: Int, g: Int, b: Int): ColorItem? {
         val sql = "SELECT $COLS FROM colors ORDER BY ((r-$r)*(r-$r)*2 + (g-$g)*(g-$g)*4 + (b-$b)*(b-$b)*3) LIMIT 1"
@@ -165,9 +243,9 @@ class ColorDb(private val ctx: Context) {
     }
 
     companion object {
-        private const val FILE = "colors_v3.db"
+        private const val FILE = "colors_v4.db"
         /** Explore's "All" shows the general name lists; design-system palettes (Material, Apple, Tailwind) appear under their own chip. */
-        private const val MAIN = "(sets LIKE '%|Web|%' OR sets LIKE '%|X11|%')"
-        private const val COLS = "name, hex, r, g, b, h, s, l, v, family, sets, also"
+        private const val MAIN = "main = 1"
+        private const val COLS = "name, hex, r, g, b, h, s, l, v, family, sets, also, code, category"
     }
 }

@@ -25,7 +25,14 @@ class Repo(ctx: Context) {
 
     // ---- library ------------------------------------------------------------
 
-    val total: Int by lazy { colors.total() }
+    init {
+        val imports = user.allImports()
+        if (imports.isNotEmpty()) colors.reloadImports(imports) // the user's licensed palettes live next to the built-in data
+    }
+
+    val total: Int get() = colors.total()
+    fun sources() = colors.sources()
+    fun entries(hex: String) = colors.entries(hex)
     fun familyCounts() = colors.familyCounts()
     /** An official colour, or (for any valid HEX) an unnamed colour made from the HEX alone. */
     fun color(hex: String): ColorItem? {
@@ -39,30 +46,7 @@ class Repo(ctx: Context) {
     fun nearest(c: ColorItem) = colors.nearest(c.r, c.g, c.b)
 
     /** A colour that is not in the library (picked by the user). It has no name: only an official name is ever shown. */
-    fun custom(hex: String): ColorItem? {
-        if (!Regex("[0-9A-F]{6}").matches(hex)) return null
-        val r = hex.substring(0, 2).toInt(16); val g = hex.substring(2, 4).toInt(16); val b = hex.substring(4, 6).toInt(16)
-        val hsv = FloatArray(3)
-        android.graphics.Color.RGBToHSV(r, g, b, hsv)
-        val mx = maxOf(r, g, b) / 255f; val mn = minOf(r, g, b) / 255f
-        val l = (mx + mn) / 2f
-        val s = if (mx == mn) 0f else (mx - mn) / (1f - Math.abs(2f * l - 1f))
-        return ColorItem("", hex, r, g, b, hsv[0], s, l, hsv[2], familyOf(hsv[0], s, l))
-    }
-
-    private fun familyOf(h: Float, s: Float, l: Float): String = when {
-        s < 0.12f || l < 0.07f || l > 0.95f -> "Neutral"
-        h in 10f..50f && l < 0.42f -> "Brown"
-        l >= 0.72f && (h >= 330f || h < 15f) -> "Pink"
-        h < 15f || h >= 345f -> "Red"
-        h < 40f -> "Orange"
-        h < 70f -> "Yellow"
-        h < 165f -> "Green"
-        h < 200f -> "Teal"
-        h < 255f -> "Blue"
-        h < 300f -> "Purple"
-        else -> "Pink"
-    }
+    fun custom(hex: String): ColorItem? = com.chroma.library.domain.ColorMath.fromHex(hex)
     fun random() = colors.random()
     fun similar(c: ColorItem, n: Int = 24) = colors.similar(c, n)
     fun shades(c: ColorItem, each: Int = 6) = colors.shades(c, each)
@@ -149,10 +133,84 @@ class Repo(ctx: Context) {
         return n
     }
 
+    // ---- licensed palettes (Pantone, RAL, NCS, ...) --------------------------------------
+    // The app does not ship these. The user imports their own licensed files; each stays under the source name they give it.
+
+    class ImportResult(val source: String, val added: Int, val skipped: Int)
+
+    /** Reads a palette file (JSON or CSV, see tools/templates) and adds it. Throws IllegalArgumentException with a readable message. */
+    fun importPalette(text: String): ImportResult {
+        val t = text.trim().removePrefix("\uFEFF")
+        val rows = ArrayList<ImportRow>()
+        var skipped = 0
+        var source: String
+        fun hexOf(v: String): String? {
+            val h = v.trim().removePrefix("#").uppercase()
+            val full = if (h.length == 3) h.map { "$it$it" }.joinToString("") else h
+            return if (Regex("[0-9A-F]{6}").matches(full)) full else null
+        }
+        if (t.startsWith("{")) {
+            val o = JSONObject(t)
+            source = o.optString("source").trim()
+            val lic = o.optString("license"); val ref = o.optString("reference"); val cat = o.optString("category", "Imported palette")
+            val arr = o.optJSONArray("colors") ?: throw IllegalArgumentException("The file has no \"colors\" list")
+            for (i in 0 until minOf(arr.length(), MAX_IMPORT)) {
+                val c = arr.optJSONObject(i) ?: continue
+                val hex = hexOf(c.optString("hex")); val name = c.optString("name").trim()
+                if (hex == null || name.isEmpty()) { skipped++; continue }
+                rows.add(ImportRow("", c.optString("code").trim(), name, hex, cat, ref, lic))
+            }
+        } else {
+            val lines = t.lines().filter { it.isNotBlank() }
+            if (lines.size < 2) throw IllegalArgumentException("The file is empty")
+            val head = splitCsv(lines[0]).map { it.trim().lowercase() }
+            val iSrc = head.indexOf("source"); val iName = head.indexOf("name"); val iHex = head.indexOf("hex")
+            val iCode = head.indexOf("code"); val iLic = head.indexOf("license"); val iRef = head.indexOf("reference")
+            if (iSrc < 0 || iName < 0 || iHex < 0) throw IllegalArgumentException("A CSV needs the columns source, name and hex")
+            source = ""
+            for (line in lines.drop(1).take(MAX_IMPORT)) {
+                val f = splitCsv(line)
+                fun col(i: Int) = if (i in f.indices) f[i].trim() else ""
+                val hex = hexOf(col(iHex)); val name = col(iName)
+                if (source.isEmpty()) source = col(iSrc)
+                if (hex == null || name.isEmpty()) { skipped++; continue }
+                rows.add(ImportRow("", col(iCode), name, hex, "Imported palette", col(iRef), col(iLic)))
+            }
+        }
+        if (source.isEmpty()) throw IllegalArgumentException("The file does not say which source it is (for example \"RAL Classic\")")
+        if (source.length > 40 || source.contains("|")) throw IllegalArgumentException("The source name is too long or contains a "|"")
+        if (source.lowercase() in setOf("css", "x11", "apple", "material", "tailwind", "web"))
+            throw IllegalArgumentException("\"$source\" is a built-in source. Use the name of your own palette")
+        if (rows.isEmpty()) throw IllegalArgumentException("No valid colors found (each needs a name and a HEX)")
+        val fixed = rows.map { ImportRow(source, it.code, it.name, it.hex, it.category, it.ref, it.license) }
+        user.replaceImport(source, fixed)
+        colors.reloadImports(user.allImports())
+        changed()
+        return ImportResult(source, fixed.size, skipped)
+    }
+
+    fun removeImportedSource(source: String) {
+        user.removeImport(source)
+        colors.reloadImports(user.allImports())
+        changed()
+    }
+
+    private fun splitCsv(line: String): List<String> {
+        val out = ArrayList<String>(); val sb = StringBuilder(); var q = false
+        for (ch in line) when {
+            ch == '"' -> q = !q
+            ch == ',' && !q -> { out.add(sb.toString()); sb.setLength(0) }
+            else -> sb.append(ch)
+        }
+        out.add(sb.toString())
+        return out
+    }
+
     fun clearFavorites() { user.clearFavorites(); changed() }
     fun clearCollections() { user.clearFolders(); changed() }
 
     companion object {
+        private const val MAX_IMPORT = 20000
         lateinit var instance: Repo
             private set
         fun init(ctx: Context) { instance = Repo(ctx.applicationContext) }

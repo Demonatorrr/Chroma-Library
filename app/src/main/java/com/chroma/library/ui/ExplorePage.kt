@@ -44,6 +44,9 @@ class ExplorePage(private val ctx: Context) : Page {
     private val list = RecyclerView(ctx)
     private val familyChips = ArrayList<Pair<String?, TextView>>()
     private val setChips = ArrayList<Pair<String?, TextView>>()
+    private lateinit var setRow: LinearLayout
+    private var rebuildSets: () -> Unit = {}
+    private var sourceNames: List<String> = emptyList()
     private lateinit var search: EditText
     private lateinit var clear: ImageView
 
@@ -92,7 +95,7 @@ class ExplorePage(private val ctx: Context) : Page {
         box.addView(ImageView(ctx).apply { setImageResource(R.drawable.ic_search); setColorFilter(ctx.color(R.color.ink2)) },
             LinearLayout.LayoutParams(ctx.dp(20), ctx.dp(20)).apply { marginEnd = ctx.dp(10) })
         search = EditText(ctx).apply {
-            hint = "Search official name or HEX"
+            hint = "Name, code, HEX or RGB"
             setHintTextColor(ctx.color(R.color.ink2))
             setTextColor(ctx.color(R.color.ink))
             textSize = 16f
@@ -124,8 +127,10 @@ class ExplorePage(private val ctx: Context) : Page {
             .apply { setMargins(ctx.dp(20), ctx.dp(16), ctx.dp(20), 0) })
 
         // palette chips (Apple, Web, Material, Tailwind), then colour-family chips
-        fun chipRow(values: List<String?>, allLabel: String, store: ArrayList<Pair<String?, TextView>>, pick: (String?) -> Unit, top: Int) {
-            val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(ctx.dp(20), 0, ctx.dp(20), 0) }
+        fun chipRow(values: List<String?>, allLabel: String, store: ArrayList<Pair<String?, TextView>>, pick: (String?) -> Unit, top: Int, into: LinearLayout? = null) {
+            val row = into ?: LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(ctx.dp(20), 0, ctx.dp(20), 0) }
+            row.removeAllViews()
+            store.clear()
             for (f in values) {
                 val chip = ctx.label(f ?: allLabel, 14f, R.color.ink, medium = true).apply {
                     gravity = Gravity.CENTER
@@ -136,10 +141,17 @@ class ExplorePage(private val ctx: Context) : Page {
                 store.add(f to chip)
                 row.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = ctx.dp(8) })
             }
-            col.addView(HorizontalScrollView(ctx).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; addView(row) },
+            if (into == null) col.addView(HorizontalScrollView(ctx).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; addView(row) },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(top) })
         }
-        chipRow(listOf<String?>(null) + SETS, "All palettes", setChips, { apply(query.copy(set = it)) }, 14)
+        setRow = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(ctx.dp(20), 0, ctx.dp(20), 0) }
+        rebuildSets = {
+            sourceNames = repo.sources().map { it.name }
+            chipRow(listOf<String?>(null) + sourceNames, "All", setChips, { apply(query.copy(set = it)) }, 14, setRow)
+        }
+        rebuildSets()
+        col.addView(HorizontalScrollView(ctx).apply { isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER; addView(setRow) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(14) })
         chipRow(listOf<String?>(null) + FAMILIES, "All hues", familyChips, { apply(query.copy(family = it)) }, 8)
 
         val sortRow = LinearLayout(ctx).apply {
@@ -208,6 +220,10 @@ class ExplorePage(private val ctx: Context) : Page {
     }
 
     override fun refresh() {
+        if (repo.sources().map { it.name } != sourceNames) { // a palette was imported or removed
+            rebuildSets()
+            if (query.set != null && query.set !in sourceNames) apply(query.copy(set = null)) else paintChips()
+        }
         if ((list.layoutManager as GridLayoutManager).spanCount != repo.columns || adapter.showHex != repo.showHex) applyGridSettings()
     }
 }

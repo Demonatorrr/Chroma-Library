@@ -16,3 +16,12 @@ An offline colour library for Android with **official names only**: CSS named co
 - Tailwind: Tailwind CSS 3.4.17 default palette (MIT).
 
 `python3 tools/build_db.py` rebuilds `app/src/main/assets/colors.db`. A HEX that appears in several palettes is stored once; its other names are kept as "also". Pantone and other licensed palettes are not included.
+
+## Data model (v1.3)
+- `entries` – one row per source and name: source, code, name, name type (always Official), category, reference URL, licence, verification level. The same HEX can have several entries; each keeps its own identity.
+- `colors` – one row per HEX for browsing, derived from `entries` (main name, sources, family, HSL/HSV).
+- Verification levels: **verified** (checked against the owner's published table: CSS against the W3C table, `tools/sources/w3c_named_colors.txt`), **source** (taken from the owner's own files: X11 `rgb.txt`, Tailwind), **published** (Apple and Material values from published references, not checked against the owner's site), **imported** (from a file you supply).
+- CMYK is a plain RGB conversion and is shown as an estimate. There are no descriptive or generated names.
+
+## Pantone, RAL and NCS
+These collections are licensed, so the app does not bundle or scrape them. Use **Settings → Import a palette file** with data you are licensed to use (templates in `tools/templates/`). The colors appear under your source name, with your codes, and are marked as imported.

@@ -31,6 +31,10 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) readBackup(uri)
     }
 
+    private val paletteLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) readPalette(uri)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -41,7 +45,8 @@ class MainActivity : AppCompatActivity() {
             CollectionsPage(this),
             FavoritesPage(this),
             SettingsPage(this, onExport = { exportLauncher.launch("chroma-library-backup.json") },
-                onImport = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) })
+                onImport = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                onImportPalette = { paletteLauncher.launch(arrayOf("application/json", "text/csv", "text/comma-separated-values", "text/plain", "*/*")) })
         )
 
         val root = FrameLayout(this)
@@ -119,6 +124,18 @@ class MainActivity : AppCompatActivity() {
             toast("Backup saved")
         } catch (e: Exception) {
             toast("Could not save the backup")
+        }
+    }
+
+    private fun readPalette(uri: Uri) {
+        try {
+            val text = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return
+            val r = repo.importPalette(text)
+            toast("Imported ${r.added} colors into ${r.source}" + if (r.skipped > 0) " (${r.skipped} skipped)" else "")
+        } catch (e: IllegalArgumentException) {
+            toast(e.message ?: "That file could not be imported")
+        } catch (e: Exception) {
+            toast("That file is not a valid palette file")
         }
     }
 

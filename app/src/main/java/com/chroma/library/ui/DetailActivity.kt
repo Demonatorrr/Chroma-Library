@@ -4,6 +4,7 @@ import android.animation.ArgbEvaluator
 import android.animation.ValueAnimator
 import android.content.Intent
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -43,6 +44,8 @@ class DetailActivity : AppCompatActivity() {
     private lateinit var nameView: TextView
     private lateinit var familyView: TextView
     private lateinit var alsoView: TextView
+    private lateinit var sourcesBox: LinearLayout
+    private lateinit var harmonyBox: LinearLayout
     private lateinit var values: LinearLayout
     private lateinit var saveButton: TextView
     private lateinit var shadesRow: LinearLayout
@@ -95,6 +98,11 @@ class DetailActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         content.addView(actions)
 
+        // names by source
+        content.addView(heading("Names by source"))
+        sourcesBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), 0, dp(24), 0) }
+        content.addView(sourcesBox)
+
         // neighbours
         content.addView(heading("Nearby shades"))
         shadesRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(24), 0, dp(24), 0) }
@@ -102,6 +110,9 @@ class DetailActivity : AppCompatActivity() {
         content.addView(heading("Similar colors"))
         similarRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(24), 0, dp(24), 0) }
         content.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(similarRow) })
+        content.addView(heading("Palettes"))
+        harmonyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(24), 0, dp(24), 0) }
+        content.addView(harmonyBox)
         content.addSpace(48)
 
         val root = FrameLayout(this)
@@ -162,7 +173,7 @@ class DetailActivity : AppCompatActivity() {
         for (v in listOf(back, heart, shuffle)) v.setColorFilter(on)
         WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !ColorMath.prefersWhite(c.argb)
         nameView.text = c.title
-        familyView.text = if (c.official) (c.setList.joinToString(" · ") + " · ${c.family}") else "Not an official color · ${c.family}"
+        familyView.text = if (c.official) (c.setList.joinToString(" · ") + " · ${c.category} · ${c.family}") else "Not an official color · ${c.family}"
         alsoView.setOnClickListener(null)
         alsoView.isClickable = false
         when {
@@ -172,6 +183,8 @@ class DetailActivity : AppCompatActivity() {
         }
         paintHeart(false)
         fillValues(c)
+        fillSources(c)
+        fillHarmonies(c)
         updateSaveLabel()
 
         // neighbours are looked up off the main thread
@@ -222,7 +235,8 @@ class DetailActivity : AppCompatActivity() {
 
     private fun fillValues(c: ColorItem) {
         values.removeAllViews()
-        val rows = listOf("HEX" to ColorMath.hex(c), "RGB" to ColorMath.rgb(c), "HSL" to ColorMath.hsl(c), "HSV" to ColorMath.hsv(c))
+        val rows = listOf("HEX" to ColorMath.hex(c), "RGB" to ColorMath.rgb(c), "HSL" to ColorMath.hsl(c), "HSV" to ColorMath.hsv(c),
+            "CMYK" to ColorMath.cmyk(c))
         rows.forEachIndexed { i, (k, v) ->
             val r = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -237,6 +251,72 @@ class DetailActivity : AppCompatActivity() {
             values.addView(r)
             if (i < rows.size - 1) values.addView(View(this).apply { setBackgroundColor(color(R.color.line)) },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1))
+        }
+    }
+
+    /** One card per source that names this colour. Each keeps the source's own name, code, licence and trust level. */
+    private fun fillSources(c: ColorItem) {
+        sourcesBox.removeAllViews()
+        val list = repo.entries(c.hex)
+        if (list.isEmpty()) {
+            sourcesBox.addView(label("No standard or palette in this library names this color, so it has no official name.", 14f, R.color.ink2))
+        }
+        for (e in list) {
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = roundRect(color(R.color.fill), dpf(Ui.R_MEDIUM.toFloat()))
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+            }
+            val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            top.addView(label(e.name, 17f, R.color.ink, bold = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            top.addView(label(e.source, 12f, R.color.ink2, medium = true, tracking = 0.06f))
+            card.addView(top)
+            if (e.code.isNotEmpty()) card.addView(label("Code  ${e.code}", 13f, R.color.ink).apply { typeface = Typeface.create("monospace", Typeface.NORMAL) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+            card.addView(label("Official name · ${e.category} · ${e.org}", 13f, R.color.ink2),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+            card.addView(label(e.verificationLabel, 13f, R.color.ink2),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+            if (e.license.isNotEmpty()) card.addView(label("Licence: ${e.license}", 12.5f, R.color.ink2),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+            if (e.ref.startsWith("http")) card.addView(label("Open source reference", 13f, R.color.ink, medium = true).apply {
+                setOnClickListener { try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(e.ref))) } catch (_: Exception) { toast("No browser found") } }
+                pressable(0.97f)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+            sourcesBox.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(10) })
+        }
+        sourcesBox.addView(label("CMYK is a plain RGB conversion (an estimate): print results depend on paper and ink.", 12.5f, R.color.ink2),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
+    }
+
+    /** Colour-wheel harmonies of this colour. Computed, so they are unnamed unless they happen to be in a palette. */
+    private fun fillHarmonies(c: ColorItem) {
+        harmonyBox.removeAllViews()
+        val sets = listOf(
+            "Complementary" to listOf(0f, 180f),
+            "Analogous" to listOf(-30f, 0f, 30f),
+            "Triadic" to listOf(0f, 120f, 240f),
+            "Split complementary" to listOf(0f, 150f, 210f),
+            "Tetradic" to listOf(0f, 90f, 180f, 270f)
+        )
+        val hsv = FloatArray(3)
+        android.graphics.Color.RGBToHSV(c.r, c.g, c.b, hsv)
+        for ((name, turns) in sets) {
+            harmonyBox.addView(label(name, 13f, R.color.ink2, medium = true),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(10); bottomMargin = dp(8) })
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for (t in turns) {
+                val argb = android.graphics.Color.HSVToColor(floatArrayOf(((hsv[0] + t) % 360f + 360f) % 360f, hsv[1], hsv[2]))
+                val hex = "%06X".format(argb and 0xFFFFFF)
+                val item = repo.color(hex) ?: continue
+                val cell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setOnClickListener { go(hex, push = true) }; pressable(0.95f) }
+                cell.addView(View(this).apply { background = swatchBackground(item.argb, dpf(Ui.R_SMALL.toFloat() + 2f)) },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)))
+                cell.addView(label("#$hex", 11f, R.color.ink2).apply { typeface = Typeface.create("monospace", Typeface.NORMAL) },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
+                row.addView(cell, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(6) })
+            }
+            harmonyBox.addView(row)
         }
     }
 

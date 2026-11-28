@@ -17,7 +17,8 @@ import java.text.NumberFormat
 class SettingsPage(
     private val ctx: Context,
     private val onExport: () -> Unit,
-    private val onImport: () -> Unit
+    private val onImport: () -> Unit,
+    private val onImportPalette: () -> Unit
 ) : Page {
 
     private val repo = Repo.instance
@@ -95,6 +96,19 @@ class SettingsPage(
         })
         body.addView(row)
 
+        section("Licensed palettes")
+        body.addView(ctx.label("Pantone, RAL and NCS names and codes are licensed, so they are not bundled. If you have a file you are allowed to use, import it and its colors appear here under your source name, with their own codes.", 13f, R.color.ink2),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = ctx.dp(4) })
+        body.addView(line("Import a palette file", "JSON or CSV with source, code, name and HEX. A template is in the project's tools/templates folder.") { onImportPalette() })
+        for (src in repo.sources().filter { it.imported }) {
+            divider()
+            body.addView(line("${src.name} · ${src.count} colors", "Imported by you. Tap to remove.") {
+                Sheets.confirm(ctx, "Remove ${src.name}?", "The imported colors are removed. Favorites and collections keep their HEX values.", "Remove") {
+                    repo.removeImportedSource(src.name); ctx.toast("Removed")
+                }
+            })
+        }
+
         section("Your data")
         body.addView(line("Export collections and favorites", "Save a backup file you can keep anywhere") { onExport() })
         divider()
@@ -114,10 +128,10 @@ class SettingsPage(
 
         section("About")
         val n = NumberFormat.getIntegerInstance().format(repo.total)
-        body.addView(line("Chroma Library", "Version 1.2 · $n official colors, stored on this device. No account, no ads, no internet needed."))
+        body.addView(line("Chroma Library", "Version 1.3 · $n official colors, stored on this device. No account, no ads, no internet needed."))
         divider()
         body.addView(line("Official names only", "Every name comes from a published palette: CSS and X11 named colors, Google Material Design, Apple system colors and Tailwind CSS. A color you pick yourself is never given an invented name; the nearest official one is shown instead.") {
-            Sheets.confirm(ctx, "Sources", "Web: the CSS named colors (npm color-name, MIT).\n\nX11: the X Window System color names (rgb.txt, X.Org, MIT).\n\nApple: iOS system colors (UIKit / SwiftUI), light and dark values.\n\nMaterial: Material Design color palette (npm material-colors, ISC, Shuhei Kagawa).\n\nTailwind: Tailwind CSS v3 default palette (MIT, Tailwind Labs).\n\nApple, Google and Tailwind names and values belong to their owners. Pantone and other licensed palettes are not included.", "OK") {}
+            Sheets.confirm(ctx, "Sources", "CSS: the W3C CSS named colors, checked against the W3C table.\n\nX11: the X Window System color names (rgb.txt, X.Org, MIT).\n\nApple: iOS system colors (UIKit / SwiftUI), light and dark values.\n\nMaterial: Google Material Design palette (npm material-colors, ISC).\n\nTailwind: Tailwind CSS v3 default palette (MIT, Tailwind Labs).\n\nApple, Google and Tailwind names and values belong to their owners. Pantone, RAL and NCS are licensed and are not included; you can import your own licensed files in Settings.", "OK") {}
         })
     }
 
@@ -125,5 +139,9 @@ class SettingsPage(
         body.setPadding(body.paddingLeft, body.paddingTop, body.paddingRight, px)
     }
 
-    override fun refresh() {}
+    private var shownImports: List<String> = repo.sources().filter { it.imported }.map { it.name }
+    override fun refresh() {
+        val now = repo.sources().filter { it.imported }.map { it.name }
+        if (now != shownImports) { shownImports = now; build() }
+    }
 }

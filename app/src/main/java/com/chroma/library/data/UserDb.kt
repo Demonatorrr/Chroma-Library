@@ -9,7 +9,7 @@ import android.database.sqlite.SQLiteOpenHelper
  * Everything the user creates: favourites, collections and what is inside them.
  * Colours are referenced by HEX, which is unique in the library, so a library update can't break them.
  */
-class UserDb(ctx: Context) : SQLiteOpenHelper(ctx, "user.db", null, 1) {
+class UserDb(ctx: Context) : SQLiteOpenHelper(ctx, "user.db", null, 2) {
 
     override fun onConfigure(db: SQLiteDatabase) {
         db.setForeignKeyConstraintsEnabled(true)
@@ -26,9 +26,44 @@ class UserDb(ctx: Context) : SQLiteOpenHelper(ctx, "user.db", null, 1) {
                 "hex TEXT NOT NULL, added_at INTEGER NOT NULL, PRIMARY KEY(folder_id, hex))"
         )
         db.execSQL("CREATE INDEX idx_items_hex ON folder_items(hex)")
+        createImports(db)
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    private fun createImports(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, code TEXT NOT NULL, " +
+                "name TEXT NOT NULL, hex TEXT NOT NULL, category TEXT NOT NULL, ref TEXT NOT NULL, license TEXT NOT NULL)"
+        )
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) createImports(db)
+    }
+
+    // ---- imported licensed palettes (Pantone, RAL, NCS, ...) -----------------------------
+
+    fun allImports(): List<ImportRow> =
+        readableDatabase.rawQuery("SELECT source, code, name, hex, category, ref, license FROM imports ORDER BY id", null).use { c ->
+            val out = ArrayList<ImportRow>(c.count)
+            while (c.moveToNext()) out.add(ImportRow(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5), c.getString(6)))
+            out
+        }
+
+    /** Replaces any earlier import of the same source with [rows]. */
+    fun replaceImport(source: String, rows: List<ImportRow>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete("imports", "source = ?", arrayOf(source))
+            for (r in rows) db.execSQL(
+                "INSERT INTO imports(source, code, name, hex, category, ref, license) VALUES(?,?,?,?,?,?,?)",
+                arrayOf(r.source, r.code, r.name, r.hex, r.category, r.ref, r.license)
+            )
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
+    }
+
+    fun removeImport(source: String) { writableDatabase.delete("imports", "source = ?", arrayOf(source)) }
 
     // ---- favourites ---------------------------------------------------------
 
