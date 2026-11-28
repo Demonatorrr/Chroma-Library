@@ -178,7 +178,7 @@ class Repo(ctx: Context) {
             }
         }
         if (source.isEmpty()) throw IllegalArgumentException("The file does not say which source it is (for example \"RAL Classic\")")
-        if (source.length > 40 || source.contains("|")) throw IllegalArgumentException("The source name is too long or contains a "|"")
+        if (source.length > 40 || source.contains("|")) throw IllegalArgumentException("The source name is too long or contains the character |")
         if (source.lowercase() in setOf("css", "x11", "apple", "material", "tailwind", "web"))
             throw IllegalArgumentException("\"$source\" is a built-in source. Use the name of your own palette")
         if (rows.isEmpty()) throw IllegalArgumentException("No valid colors found (each needs a name and a HEX)")
