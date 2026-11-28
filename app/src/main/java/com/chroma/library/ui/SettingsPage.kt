@@ -114,10 +114,10 @@ class SettingsPage(
 
         section("About")
         val n = NumberFormat.getIntegerInstance().format(repo.total)
-        body.addView(line("Chroma Library", "Version 1.1 · $n official colors, stored on this device. No account, no ads, no internet needed."))
+        body.addView(line("Chroma Library", "Version 1.2 · $n official colors, stored on this device. No account, no ads, no internet needed."))
         divider()
-        body.addView(line("Official names only", "Every name comes from a published palette: Apple system colors, CSS named colors, Google Material Design and Tailwind CSS. A color you pick yourself is never given an invented name; the nearest official one is shown instead.") {
-            Sheets.confirm(ctx, "Sources", "Apple: iOS system colors (UIKit / SwiftUI), light and dark values.\n\nWeb: the CSS named colors (npm color-name, MIT, Dmitry Ivanov).\n\nMaterial: Material Design color palette (npm material-colors, ISC, Shuhei Kagawa).\n\nTailwind: Tailwind CSS v3 default palette (MIT, Tailwind Labs).\n\nApple, Google and Tailwind names and values belong to their owners. Pantone and other licensed palettes are not included.", "OK") {}
+        body.addView(line("Official names only", "Every name comes from a published palette: CSS and X11 named colors, Google Material Design, Apple system colors and Tailwind CSS. A color you pick yourself is never given an invented name; the nearest official one is shown instead.") {
+            Sheets.confirm(ctx, "Sources", "Web: the CSS named colors (npm color-name, MIT).\n\nX11: the X Window System color names (rgb.txt, X.Org, MIT).\n\nApple: iOS system colors (UIKit / SwiftUI), light and dark values.\n\nMaterial: Material Design color palette (npm material-colors, ISC, Shuhei Kagawa).\n\nTailwind: Tailwind CSS v3 default palette (MIT, Tailwind Labs).\n\nApple, Google and Tailwind names and values belong to their owners. Pantone and other licensed palettes are not included.", "OK") {}
         })
     }
 

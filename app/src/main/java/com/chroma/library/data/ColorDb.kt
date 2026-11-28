@@ -67,7 +67,7 @@ class ColorDb(private val ctx: Context) {
             prefix = "${esc(fold(text))}%"
         }
         q.family?.let { parts.add("family = ?"); args.add(it) }
-        q.set?.let { parts.add("sets LIKE ?"); args.add("%|$it|%") }
+        if (q.set != null) { parts.add("sets LIKE ?"); args.add("%|${q.set}|%") } else parts.add(MAIN)
         return Where(if (parts.isEmpty()) "" else " WHERE " + parts.joinToString(" AND "), args, prefix)
     }
 
@@ -122,7 +122,7 @@ class ColorDb(private val ctx: Context) {
     fun total(): Int = db.rawQuery("SELECT COUNT(*) FROM colors", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
     fun random(): ColorItem? =
-        db.rawQuery("SELECT $COLS FROM colors ORDER BY RANDOM() LIMIT 1", null).use { if (it.moveToFirst()) read(it) else null }
+        db.rawQuery("SELECT $COLS FROM colors WHERE $MAIN ORDER BY RANDOM() LIMIT 1", null).use { if (it.moveToFirst()) read(it) else null }
 
     fun familyCounts(): Map<String, Int> {
         val out = LinkedHashMap<String, Int>()
@@ -165,7 +165,9 @@ class ColorDb(private val ctx: Context) {
     }
 
     companion object {
-        private const val FILE = "colors_v2.db"
+        private const val FILE = "colors_v3.db"
+        /** Explore's "All" shows the general name lists; design-system palettes (Material, Apple, Tailwind) appear under their own chip. */
+        private const val MAIN = "(sets LIKE '%|Web|%' OR sets LIKE '%|X11|%')"
         private const val COLS = "name, hex, r, g, b, h, s, l, v, family, sets, also"
     }
 }

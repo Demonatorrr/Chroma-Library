@@ -53,11 +53,9 @@ class PickerPage(private val ctx: Context) : Page {
         body.addView(ctx.label("Make a color, get its official name", 13.5f, R.color.ink2),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = ctx.dp(4) })
 
-        body.addView(wheel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0).apply { topMargin = ctx.dp(18) })
-        wheel.post { // square, as wide as the column but never huge
-            val w = minOf(wheel.width, ctx.dp(340))
-            wheel.layoutParams = (wheel.layoutParams as LinearLayout.LayoutParams).apply { height = w; gravity = Gravity.CENTER_HORIZONTAL; width = w }
-        }
+        body.addView(wheel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = ctx.dp(18); gravity = Gravity.CENTER_HORIZONTAL
+        })
         wheel.onChange = { h, s -> hsv[0] = h; hsv[1] = s; bar.set(h, s, hsv[2]); update(fromUser = true) }
         body.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ctx.dp(44)).apply { topMargin = ctx.dp(10) })
         bar.onChange = { v -> hsv[2] = v; wheel.value = v; update(fromUser = true) }

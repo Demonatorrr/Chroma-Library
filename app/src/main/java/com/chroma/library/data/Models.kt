@@ -49,10 +49,11 @@ class Folder(
 val FAMILIES = listOf("Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink", "Brown", "Neutral")
 
 /** The official palettes the library is built from, with what each one is. */
-val SETS = listOf("Apple", "Web", "Material", "Tailwind")
+val SETS = listOf("Web", "X11", "Material", "Apple", "Tailwind")
 val SET_INFO = mapOf(
-    "Apple" to "Apple system colors (iOS, light and dark)",
     "Web" to "CSS named colors",
+    "X11" to "X11 color names",
+    "Apple" to "Apple system colors (iOS, light and dark)",
     "Material" to "Google Material Design",
     "Tailwind" to "Tailwind CSS v3"
 )

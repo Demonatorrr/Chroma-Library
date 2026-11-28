@@ -1,8 +1,8 @@
 """Builds app/src/main/assets/colors.db from the official palettes in tools/sources/.
 
-Only names published by the palette owners are used (Apple system colours, CSS named colours,
+Only names published by the palette owners are used (CSS and X11 named colours, Apple system colours,
 Material Design, Tailwind CSS). Nothing is invented. A HEX that appears in several palettes is
-stored once; its first name (Apple, then Web, Material, Tailwind) is the main name and the
+stored once; its first name (Web, X11, Apple, Material, Tailwind) is the main name and the
 others go into `also`.
 """
 import colorsys, json, os, sqlite3, unicodedata
@@ -52,14 +52,26 @@ def family(h, s, l):
 
 entries = []  # (set, name, hex) in priority order
 
+x11 = json.load(open(os.path.join(SRC, "x11.json")))
+x11_name = {n.replace(" ", "").lower(): n for n, _ in x11}
+x11_name["rebeccapurple"] = "Rebecca Purple"  # CSS Color 4, not in X11
+
+css = json.load(open(os.path.join(SRC, "css.json")))
+css_names = set()
+for kw, v in css.items():
+    nm = x11_name.get(kw, kw.capitalize())  # spaced spelling of the CSS keyword
+    css_names.add(nm)
+    entries.append(("Web", nm, hx(v)))
+
+for nm, v in x11:
+    # X11 and CSS disagree on a few colours (Green, Gray, Maroon, Purple): keep both, label the X11 one
+    entries.append(("X11", nm + " (X11)" if nm in css_names and hx(v) != hx(css[nm.replace(" ", "").lower()]) else nm, hx(v)))
+
 apple = json.load(open(os.path.join(SRC, "apple.json")))
 for name, v in apple["light"].items():
     entries.append(("Apple", name, hx(v)))
 for name, v in apple["dark"].items():
     entries.append(("Apple", name + " (Dark)", hx(v)))
-
-for name, v in json.load(open(os.path.join(SRC, "css.json"))).items():
-    entries.append(("Web", name, hx(v)))
 
 mat = json.load(open(os.path.join(SRC, "material.json")))
 for fam, shades in mat.items():

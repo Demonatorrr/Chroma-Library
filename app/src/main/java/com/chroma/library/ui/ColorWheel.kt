@@ -34,15 +34,22 @@ class ColorWheel(ctx: Context) : View(ctx) {
     private var cy = 0f
     private var radius = 0f
 
+    override fun onMeasure(wSpec: Int, hSpec: Int) {
+        val w = minOf(MeasureSpec.getSize(wSpec), context.dp(340))
+        setMeasuredDimension(w, w)
+    }
+
     override fun onSizeChanged(w: Int, h: Int, ow: Int, oh: Int) {
         cx = w / 2f; cy = h / 2f
         radius = min(w, h) / 2f - context.dpf(4f)
+        if (radius <= 1f) { disc.shader = null; sats.shader = null; return } // not laid out yet
         val hues = IntArray(7) { Color.HSVToColor(floatArrayOf(it * 60f, 1f, 1f)) }
         disc.shader = SweepGradient(cx, cy, hues, null)
         sats.shader = RadialGradient(cx, cy, radius, Color.WHITE, 0x00FFFFFF, Shader.TileMode.CLAMP)
     }
 
     override fun onDraw(c: Canvas) {
+        if (radius <= 0f) return
         c.drawCircle(cx, cy, radius, disc)
         c.drawCircle(cx, cy, radius, sats)
         dim.color = Color.argb(((1f - value) * 255).toInt(), 0, 0, 0)
@@ -63,6 +70,7 @@ class ColorWheel(ctx: Context) : View(ctx) {
             MotionEvent.ACTION_DOWN -> parent?.requestDisallowInterceptTouchEvent(true)
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> return true
         }
+        if (radius <= 1f) return true
         val dx = e.x - cx
         val dy = e.y - cy
         var h = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
